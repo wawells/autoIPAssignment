@@ -5,8 +5,6 @@ from pathlib import Path
 Relevant Header Info:
 Location | Manufacturer | Model | Design Name | Switch | Switch Port | Mac Address | Serial Number | Firmware Version | Primary IP address | Secondary IP Address | Subnet | Gateway | VLAN | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | User Name | Password
 
-IP Ranges 132.1.0.xxx
-
 1-19: Network Infrastructure 
 20: Mic Master Control
 21-25: MIC WAPS
@@ -35,31 +33,6 @@ IP Ranges 132.1.0.xxx
 251-253: Service
 254: DNS
 255: Broadcast
-
-Device Types = {
-    "processor":"CPRO",
-    "dsp":"DSP",
-    "mics":"MIC",
-    "cams":"CAM",
-    "touchpanels":"TPT",
-    "audioDev","AMP",
-    "expander":"EXP",
-    "avb":"AVB",
-    "pdu":"PDU"
-    "encoder": "ENC"
-    "decoder": "DEC"
-    "Switch": "NSW"
-    "Access Point": "WAP"
-
-}
-
-
-1. have user paste deivce list directly or import CSV from file
-2. Delimit file based on comma, tab, or 3+ spaces
-3. Separate devices into multi-dimensional array, assume 3+ blank rows indicates end of file
-4. Assign IPs for devices, microphones CAN use multiple IPs, gather this from "Dante" in mac address field
-5. Create CSV with updated devices, place in downloads folder, show header and first 3 rows of data in command line. How else can we show the output to make it convenient to paste into file?
-
 """
 
 #global resources
@@ -79,15 +52,13 @@ PROVIDING_PATH = 2
 IPSTART = "132.1.0."
 numDevices = 0
 
-
-#test path
 testPath = '/Users/alex/Downloads/TED(Project- TED- Training - Colab ).csv'
 
 #--------------------------------------METHODS--------------------------------------#
 
 #Prompts user for input format and data, then executes populates IPs for the provided data if possible
 def getInput():
-    """
+
     importType = INVALID
     while not isValid(importType, [PASTING_VALS, PROVIDING_PATH]):
         importType = input("Will you be (1)pasting values or (2)providing a CSV file path? ")
@@ -97,13 +68,11 @@ def getInput():
         data = input("Enter pasted values here: ")
         parseData(data)
     else:
-    """
-    if True:
         #file path
         validFile = False
         while not validFile:
-            #file_path = input("Enter the full path to the CSV file here: ")
-            file_path = testPath
+            file_path = input("Enter the full path to the CSV file here: ")
+            #file_path = testPath
             try:
                 with open(file_path, "r") as file:
                     if file_path.endswith(".csv"): 
@@ -335,7 +304,7 @@ def writeFile():
                 file.write(line)
                 
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error writing to file: {e}")
             
             
 
@@ -442,8 +411,3 @@ def main():
 
 
 main()
-
-#createPools()
-#unknownDevs["WOW-101"] = 100
-#unknownDevs["WOW-102"] = 200
-#fixUnknowns()
