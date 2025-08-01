@@ -1,3 +1,6 @@
+import os
+import platform
+from pathlib import Path
 """ 
 Relevant Header Info:
 Location | Manufacturer | Model | Design Name | Switch | Switch Port | Mac Address | Serial Number | Firmware Version | Primary IP address | Secondary IP Address | Subnet | Gateway | VLAN | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | User Name | Password
@@ -67,7 +70,7 @@ outputFile = ""
 ips = {}
 devices = {}
 fileLines = []
-unknownDevs = []
+unknownDevs = {}
 blankLine = "---,---,---,---,---,---,---,---,---,---,---,---,---,---,---,---,---,---,---,---,---,---,---,---,---,---,\n"
 
 INVALID = -1
@@ -125,12 +128,7 @@ def getInput():
             except Exception as e:
                 print(f"Unexpected error: {e}. Please try again.")    
 
-    #at this point we should have populated the fileLines from either paste or file parsing, now we group devices and assign IPs
-    if len(fileLines) > 0:
-        assignDevices()
-    
-    if len(unknownDevs) > 0:
-        fixUnknowns()
+
 
 #establishes the IP scheme for the program
 def createPools():
@@ -239,7 +237,11 @@ def assignDevices():
                 if curType != "unknown":
                     ipaddr = getAddress(curType)
                     devices[curType].append(deviceID)
-                    # TODO write the generated IP address to the list
+                    #write the generated IP address to the list   
+                    parsedLine[9] = ipaddr
+                    #we have added the IP, now recombine it and replace in fileLines
+                    updatedLine = makeCsvStr(parsedLine)
+                    fileLines[line] = updatedLine
                 else:
                     #determine if the unknown is valid or a parsing error
                     if not deviceID.isspace() and deviceID != "---":
@@ -247,7 +249,7 @@ def assignDevices():
                         if hyphenInd > 0:
                             devNum = deviceID[hyphenInd+1:]
                             if devNum.isdigit():
-                                unknownDevs.append(deviceID)
+                                unknownDevs[deviceID] = line
                             else:
                                 print("Unknown Device Skipped; Non-numeric: " + deviceID)
                         else:
@@ -259,23 +261,83 @@ def assignDevices():
 
 #Requests user assistance with assigning IPs to atypical devices
 def fixUnknowns():
-    if len(unknownDevs) > 0:
+    unknownList = list(unknownDevs.keys())
+    
+    while len(unknownList) > 0:
         print("The following devices were unable to be identified: ")
-        for dev in range(len(unknownDevs)):
+        for dev in range(len(unknownList)):
             adjNum = dev + 1
-            print(str(adjNum) + ") " + unknownDevs[dev])
+            print(str(adjNum) + ") " + unknownList[dev])
 
         unknownSel = INVALID
-        while not isValidRange(unknownSel, 1, len(unknownDevs)):
+        while not isValidRange(unknownSel, 1, len(unknownList)):
             unknownSel = input("Select a device to assign to a category: ")
         adjSel = int(unknownSel) - 1
-            
-        print("Selected Device: " + unknownDevs[adjSel])
-        print("0) Back\n1) Processor\n2) DSP\n3) Microphone\n4) Camera\n5) Touchpanel\n6) Audio Device\n7) Transmitter\n8) Receiver\n9) Network")
+        
+        selectedDev = unknownList[adjSel]
+        print("Selected Device: " + selectedDev)
+        print("0) Back\n1) Processor\n2) DSP\n3) Microphone\n4) Camera\n5) Touchpanel\n6) Audio Device\n7) Transmitter\n8) Receiver\n9) Network\n10) Power")
 
         catSel = INVALID
-        while not isValidRange(catSel, 0, 9):
+        while not isValidRange(catSel, 0, 10):
             catSel = input("Select a category for the selected device, or go back: ")
+            
+        if int(catSel) > 0:
+            match int(catSel):
+                case 1:
+                    curType = "processor"
+                case 2:
+                    curType = "dsp"
+                case 3:
+                    curType = "mics"
+                case 4:
+                    curType = "cams"
+                case 5:
+                    curType = "touchpanels"
+                case 6:
+                    curType = "audioDev"
+                case 7:
+                    curType = "netVidTx"
+                case 8:
+                    curType = "netVidRx"
+                case 9:
+                    curType = "network"
+                case 10:
+                    curType = "pdus"
+                case _:
+                    curType = "unknown"
+                    
+            if curType != "unknown":
+                curIP = getAddress(curType)
+                #find line referenced by unknownDev to update IP
+                line = unknownDevs[selectedDev]
+                print("Line # associated with " + selectedDev + ": " + str(line))
+                #parse line to add IP field
+                parsedLine = fileLines[line].split(",")
+                if len(parsedLine) >= 8:
+                    parsedLine[9] = curIP
+                    #we have added the IP, now recombine it and replace in fileLines
+                    updatedLine = makeCsvStr(parsedLine)
+                    fileLines[line] = updatedLine
+                
+                devices[curType].append(selectedDev)
+                unknownList.remove(selectedDev)
+                
+
+#Write the lines that were read and edited into a new file. Place that file in the downloads folder
+def writeFile():
+    try:
+        downloadFolder = getDLPath()
+        path = downloadFolder / "UPDATED_CSV.csv"
+        
+        with open(path, 'w') as file:
+            for line in fileLines:
+                file.write(line)
+                
+    except Exception as e:
+        print(f"Error: {e}")
+            
+            
 
 
 #--------------------------------------Helper Methods--------------------------------------#
@@ -336,16 +398,52 @@ def getType(name: str) -> str:
 
     return devType
 
+
+#Given a list of Strings, combine them into a comma-separated string
+def makeCsvStr(parsed: list) -> str:
+    combinedStr = "Error reading parameter"
+    if len(parsed) > 0:
+        combinedStr = ""
+        for field in parsed:
+            combinedStr += field + ","
+    
+    return combinedStr
+
+#Determine the path to the downloads folder based on OS
+def getDLPath():
+    system = platform.system()
+    
+    if system == 'Windows':
+        dlPath = Path(os.environ['USERPROFILE']) / 'Downloads'
+    elif system in ('Linux', 'Darwin'):
+        dlPath = Path.home() / 'Downloads'
+    else:
+        raise OSError(f"Unsupported Operating System: {system}")
+    
+    if not dlPath.exists():
+        raise FileNotFoundError(f"Downloads folder not found")
+    
+    return dlPath
 #--------------------------------------Main--------------------------------------#
 
 def main():
     createPools()
     getInput()
+    #at this point we should have populated the fileLines from either paste or file parsing, now we group devices and assign IPs
+    if len(fileLines) > 0:
+        assignDevices()
+        assigned = True
+    #if we find any devices we can't identify, fix them
+    if len(unknownDevs) > 0:
+        fixUnknowns()
+    
+    if assigned:
+        writeFile()
 
 
-#main()
+main()
 
-unknownDevs.append("WOW-101")
-unknownDevs.append("WOW-102")
-
-fixUnknowns()
+#createPools()
+#unknownDevs["WOW-101"] = 100
+#unknownDevs["WOW-102"] = 200
+#fixUnknowns()
