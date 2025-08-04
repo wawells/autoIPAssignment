@@ -1,5 +1,4 @@
-import os
-import platform
+import csv, os, platform
 from pathlib import Path
 """ 
 A tool to create an IP scheme for established groups of device types
@@ -7,13 +6,14 @@ Code by William Wells
 
 
 TODO:
-- pasting excel content as input
-- Update CSV reading/writing with CSV writer module
 - check for IP conflicts between adjacent device groups on assignment
+- check device counts before assigning IPs, allows for dynamic adjustment of IP pools
 - redefine IP groups and update fixUnknowns group selection list
-- allow skipping fixUnknowns
+- pasting excel content as input
 
 Secondary
+- when defining device types, group remaining selections of the same type automatically
+- allow skipping fixUnknowns
 - allow specified output path
 - allow specified ip scheme
 - allow specified ip blacklist
@@ -21,7 +21,8 @@ Secondary
 """
 
 """
-Location | Manufacturer | Model | Design Name | Switch | Switch Port | Mac Address | Serial Number | Firmware Version | Primary IP address | Secondary IP Address | Subnet | Gateway | VLAN | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | User Name | Password
+   0            1           2          3           4          5              6            7                   8                 9                    10               11        12      13        14              15              16           17         18       19        20         21          22         23         24         25        26
+Location | Manufacturer | Model | Design Name | Switch | Switch Port | Mac Address | Serial Number | Firmware Version | Primary IP address | Secondary IP Address | Subnet | Gateway | VLAN | Crestron ID | Gatekeeper Addr | System name | 164 Addr | SIP User | SIP # | SIP Port | SIP Proxy | SIP Auth | SIP Pass | User Name | Password | Notes 
 
 1-19: Network Infrastructure 
 20: Mic Master Control
@@ -62,7 +63,10 @@ ips = {}
 devices = {}
 fileLines = []
 unknownDevs = {}
-blankLine = "---,---,---,---,---,---,---,---,---,---,---,---,---,---,---,---,---,---,---,---,---,---,---,---,---,---,\n"
+
+
+BLANK_FIELD = "---"
+NUM_FIELDS = 27
 
 INVALID = -1
 PASTING_VALS = 1
@@ -90,21 +94,25 @@ def get_input():
             file_path = input("Enter the full path to the CSV file here: ")
             #file_path = testPath
             try:
-                with open(file_path, "r") as file:
+                with open(file_path, "r", newline = '', encoding = 'utf-8') as file:
                     if file_path.endswith(".csv"): 
                         validFile = True
                     else:
                         print("Invalid File Format. Please Use a CSV")
+                    
+                    reader = csv.reader(file)
                     numBlanks = 0
-                    currentLine = file.readline()
-                    while currentLine != "" and numBlanks < 3:
-                        #3 consecutive "blank" lines assumes EoF
-                        if currentLine == blankLine:
-                            numBlanks = numBlanks + 1
-                        else: 
-                            numBlanks = 0
-                        fileLines.append(currentLine)
-                        currentLine = file.readline()
+                    for row in reader:
+                        #verify we are looking at data row, and all fields within the row are blank
+                        if len(row) == NUM_FIELDS and all(field.strip() in ("", BLANK_FIELD) for field in row):
+                            numBlanks += 1
+                        else:
+                            numBlanks = 0    
+                        fileLines.append(row)
+                        
+                        #early exit condition for 3 or more blank rows
+                        if numBlanks >= 3: 
+                            break
                         
             except FileNotFoundError:
                 print(f"File not found at '{file_path}'. Please try again.")
@@ -207,40 +215,28 @@ def get_address(typeName: str) -> int:
 
 def assign_devices():
     """Iterates through populated list of lines provided by user and assigns IPs"""
-    for line in range(len(fileLines)):
-        #if we have -, we are likely looking at rows with devices
-        if "-" in fileLines[line]:
-            #separate line into individual fields
-            parsedLine = fileLines[line].split(",")
-
-            #extract the device from the information
-            if len(parsedLine) > 3:
-                deviceID = parsedLine[3].strip()
-                deviceID = str(deviceID)
-
+    for line, currentRow in enumerate(fileLines):
+        if len(currentRow) >= NUM_FIELDS:
+            #if we have -, we are likely looking at rows with devices
+            if "-" in currentRow[3] and currentRow[3] != BLANK_FIELD:
+                #extract the device from the information
+                deviceID = str(currentRow[3].strip())
                 curType = get_type(deviceID)
                 if curType != "unknown":
                     ipaddr = get_address(curType)
                     devices[curType].append(deviceID)
-                    #write the generated IP address to the list   
-                    parsedLine[9] = ipaddr
-                    #we have added the IP, now recombine it and replace in fileLines
-                    updatedLine = make_csv_str(parsedLine)
-                    fileLines[line] = updatedLine
+                    currentRow[9] = ipaddr
                 else:
-                    #determine if the unknown is valid or a parsing error
-                    if not deviceID.isspace() and deviceID != "---":
-                        hyphenInd = deviceID.find("-")
-                        if hyphenInd > 0:
-                            devNum = deviceID[hyphenInd+1:]
-                            if devNum.isdigit():
-                                unknownDevs[deviceID] = line
-                            else:
-                                print("Unknown Device Skipped; Non-numeric: " + deviceID)
+                    hyphenInd = deviceID.find("-")
+                    if hyphenInd > 0:
+                        devNum = deviceID[hyphenInd+1:]
+                        if devNum.isdigit():
+                            #we have determined the device has some sort of number associated, indicating it is likely valid
+                            unknownDevs[deviceID] = line
                         else:
-                           print("Unknown Device Skipped; Missing '-': " + deviceID)     
+                            print("Unknown Device Skipped; Non-numeric: " + deviceID)
                     else:
-                        print("Unknown Device Skipped; Missing Device: " + deviceID)
+                        print("Unknown Device Skipped; Missing '-': " + deviceID)     
 
 
 def fix_unknowns():
@@ -295,14 +291,9 @@ def fix_unknowns():
                 curIP = get_address(curType)
                 #find line referenced by unknownDev to update IP
                 line = unknownDevs[selectedDev]
-                print("Line # associated with " + selectedDev + ": " + str(line))
-                #parse line to add IP field
-                parsedLine = fileLines[line].split(",")
-                if len(parsedLine) >= 8:
-                    parsedLine[9] = curIP
-                    #we have added the IP, now recombine it and replace in fileLines
-                    updatedLine = make_csv_str(parsedLine)
-                    fileLines[line] = updatedLine
+                csvLine = fileLines[line]
+                if len(csvLine) >= NUM_FIELDS:
+                    csvLine[9] = curIP
                 
                 devices[curType].append(selectedDev)
                 unknownList.remove(selectedDev)
@@ -314,9 +305,9 @@ def write_file():
         downloadFolder = get_dl_path()
         path = downloadFolder / "UPDATED_CSV.csv"
         
-        with open(path, 'w') as file:
-            for line in fileLines:
-                file.write(line)
+        with open(path, 'w', newline = '') as file:
+            writer = csv.writer(file)
+            writer.writerows(fileLines)
                 
     except Exception as e:
         print(f"Error writing to file: {e}")
@@ -383,18 +374,6 @@ def get_type(name: str) -> str:
             devType = "unknown"
 
     return devType
-
-
-def make_csv_str(parsed: list) -> str:
-    """Given a list of Strings, combine them into a comma-separated string"""
-    combinedStr = "Error reading parameter"
-    if len(parsed) > 0:
-        combinedStr = ""
-        for field in parsed:
-            combinedStr += field + ","
-    
-    return combinedStr
-
 
 def get_dl_path():
     """__Determine the path to the downloads folder based on OS"""
