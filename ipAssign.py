@@ -6,7 +6,7 @@ Code by William Wells
 
 
 TODO:
-- check for IP conflicts between adjacent device groups on assignment
+- check for IP conflicts between adjacent device groups on assignment - utilize a Set of existing IPs to double check an IP doesn't exist, can increment next available IP based on Set contents
 - check device counts before assigning IPs, allows for dynamic adjustment of IP pools
 - redefine IP groups and update fixUnknowns group selection list
 - pasting excel content as input
@@ -200,17 +200,17 @@ def parse_data(data: str):
 def get_address(typeName: str) -> int:
     """Given the type of the device, determines the next IP in the range to assign to the device"""
     #get leading values of IP
-    newAddress = str(IPSTART)
+    address = str(IPSTART)
     
     #find next IP to assign based on device type
     num = ips.get(typeName)
-    newAddress = newAddress + str(num)
+    address = address + str(num)
 
     #increment next available IP and update dict
-    num = num + 1
+    num += 1
     ips[typeName] = num
 
-    return newAddress
+    return address
 
 
 def assign_devices():
@@ -328,7 +328,6 @@ def is_valid(provided: int, accepted) -> bool:
 
 def is_valid_range(provided: str, minAccepted: int, maxAccepted: int) -> bool:
     """Determines if provided value is between 1 and the maxAccepted value."""
-
     valid = False
     if str(provided).isdigit():
         valid = int(provided) >= int(minAccepted) and int(provided) <= maxAccepted
@@ -336,7 +335,6 @@ def is_valid_range(provided: str, minAccepted: int, maxAccepted: int) -> bool:
 
 def get_type(name: str) -> str:
     """Determines the device type given the device name, assuming standard format (e.g. DEC-101 -> DEC)"""
-
     #filter out device number
     hyphenInd = name.find("-")
     filteredName = name[:hyphenInd]
