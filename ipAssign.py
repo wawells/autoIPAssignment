@@ -42,7 +42,8 @@ Location | Manufacturer | Model | Design Name | Switch | Switch Port | Mac Addre
 111-119: Touch Panels
 120: OPEN ? 
 121-140: Network Video Rx
-141-160: Network Video Tx
+141: Matrix
+142-160: Network Video Tx
 161-199: Ceiling Speakers
 200: OPEN
 201-220: Displays
@@ -65,7 +66,6 @@ unknownDevs = {}
 usedIPs = set()
 blacklist = set()
 
-
 BLANK_FIELD = "---"
 INVALID = -1
 IPSTART = "132.1.0."
@@ -73,6 +73,124 @@ NUM_FIELDS = 27
 PASTING_VALS = 1
 PROVIDING_PATH = 2
 
+groupTypes = {
+    "network": {
+        "fname": "Network",
+        "dname": ["NSW", "WAP"],
+        "ip": 1
+    },
+    "micControl": {
+        "fname": "Mic Control",
+        "dname": ["MIC"],
+        "ip": 20
+    },
+    "micWaps": {
+        "fname": "Mic WAP",
+        "dname": ["WAP"],
+        "ip": 21
+    },
+    "danteMicWaps": {
+        "fname": "Dante Mic WAP",
+        "dname": ["MIC"],
+        "ip": 26 
+    },
+    "mics": {
+        "fname": "Mic",
+        "dname": ["MIC"],
+        "ip": 31
+    },
+    "danteMics": {
+        "fname": "Dante Mic",
+        "dname": ["MIC"],
+        "ip": 51
+    },
+    "micChargers": {
+        "fname": "Mic Charger",
+        "dname": ["NCS"],
+        "ip": 70
+    },
+    "camControl": {
+        "fname": "Camera Control",
+        "dname": ["mystery"],
+        "ip": 80
+    }, 
+    "cams": {
+        "fname": "Camera",
+        "dname": ["CAM"],
+        "ip": 81
+    }, 
+    "bridges": {
+        "fname": "AV Bridge",
+        "dname": ["AVB"],
+        "ip": 90
+    },
+    "control": {
+        "fname": "Control Device",
+        "dname": ["mystery"],
+        "ip": 95
+    },
+    "processor": {
+        "fname": "Processor",
+        "dname": ["CPRO", "PRO"],
+        "ip": 100
+    },
+    "dsp": {
+        "fname": "DSP",
+        "dname": ["DSP"],
+        "ip": 101
+    },
+    "dante": {
+        "fname": "Dante",
+        "dname": ["mystery"],
+        "ip": 104
+    },
+    "audioDev": {
+        "fname": "Audio Device",
+        "dname": ["AMP"],
+        "ip": 105
+    },
+    "touchpanels": {
+        "fname": "Touchpanel",
+        "dname": ["TPT", "TP"],
+        "ip": 111
+    },
+    "netVidRX": {
+        "fname": "Receiver",
+        "dname": ["DEC"],
+        "ip": 121
+    },
+    "matrix": {
+        "fname": "AV Matrix",
+        "dname": ["AVMX"],
+        "ip": 141
+    },
+    "netVidTx": {
+        "fname": "Transmitter",
+        "dname": ["ENC"],
+        "ip": 142
+    },
+    "speakers": {
+        "fname": "Speaker",
+        "dname": ["SPK"],
+        "ip": 161
+    },
+    "pdus": {
+        "fname": "Power Device",
+        "dname": ["PDU"],
+        "ip": 181
+    },
+    "displays": {
+        "fname": "Display",
+        "dname": ["DISP"],
+        "ip": 201
+    },
+    "videoWallProc": {
+        "fname": "Videowall Processor",
+        "dname": ["VWP"],
+        "ip": 221
+    }
+}            
+            
 testPath = '/Users/alex/Downloads/TED(Project- TED- Training - Colab ).csv'
 
 #--------------------------------------METHODS--------------------------------------#
@@ -108,7 +226,6 @@ def get_input():
                         else:
                             numBlanks = 0    
                         fileLines.append(row)
-                        
                         #early exit condition for 3 or more blank rows
                         if numBlanks >= 3: 
                             break
@@ -123,74 +240,11 @@ def get_input():
 
 def create_pools():
     """establishes the IP scheme for the program"""
-    
-    ips["network"] = 1
-    devices["network"] = []
-
-    ips["micControl"] = 20
-    devices["micControl"] = []
-
-    ips["micWAPS"] = 21
-    devices ["micWAPS"] = []
-
-    ips["danteMicWaps"] = 26
-    devices["danteMicWaps"] = []
-
-    ips["mics"] = 31
-    devices["mics"] = []
-
-    ips["danteMics"] = 51
-    devices["danteMics"] = []
-
-    ips["micChargers"] = 70
-    devices["micChargers"] = []
-
-    ips["camControl"] = 80
-    devices["camControl"] = []
-
-    ips["cams"] = 81
-    devices["cams"] = []
-
-    ips["bridges"] = 90
-    devices["bridges"] = []
-
-    ips["control"] = 95
-    devices["control"] = []
-
-    ips["processor"] = 100
-    devices["processor"] = []
-
-    ips["dsp"] = 101
-    devices["dsp"] = []
-
-    ips["dante"] = 104
-    devices["dante"] = []
-
-    ips["audioDev"] = 105
-    devices["audioDev"] = []
-
-    ips["touchpanels"] = 111
-    devices["touchpanels"] = []
-
-    ips["netVidRx"] = 121
-    devices["netVidRx"] = []
-
-    ips["netVidTx"] = 142
-    devices["netVidTx"] = []
-
-    ips["speakers"] = 161
-    devices["speakers"] = []
-
-    ips["pdus"] = 181
-    devices["pdus"] = []
-
-    ips["displays"] = 201
-    devices["displays"] = []
-
-    ips["videowallProc"] = 221
-    devices["videowallProc"] = []
-
-
+    for group, info in groupTypes.items():
+        devices[group] = []
+        ips[group] = info["ip"]
+        
+        
 def parse_data(data: str):
     """Parses the pasted device table from user input"""
     print("Not yet implemented!")
@@ -244,58 +298,38 @@ def fix_unknowns():
     while len(unknownList) > 0 and not userQuit:
         print("The following devices were unable to be identified: ")
         print("0) Quit")
-        for dev in range(len(unknownList)):
-            adjNum = dev + 1
-            print(str(adjNum) + ") " + unknownList[dev])
+        for index, device in enumerate(unknownList, start = 1):
+            print(f"{index}) {device}")
+            #print(str(index) + ") " + device)
 
-        unknownSel = INVALID
-        while not is_valid_range(unknownSel, 0, len(unknownList)):
-            unknownSel = input("Select a device to assign to a category, or quit: ")
+        selection = INVALID
+        while not is_valid_range(selection, 0, len(unknownList)):
+            selection = input("Select a device to assign to a category, or quit: ")
         
-        if int(unknownSel) == 0:
+        selection = int(selection)
+    
+        if selection == 0:
             userQuit = True
         else:
-            adjSel = int(unknownSel) - 1
+            selectedDev = unknownList[selection - 1]
+            groupList = list(groupTypes.keys())
             
-            selectedDev = unknownList[adjSel]
             print("Selected Device: " + selectedDev)
-            print("0) Back\n1) Processor\n2) DSP\n3) Microphone\n4) Camera\n5) Touchpanel\n6) Audio Device\n7) Transmitter\n8) Receiver\n9) Network\n10) Power")
-
-            catSel = INVALID
-            while not is_valid_range(catSel, 0, 10):
-                catSel = input("Select a category for the selected device, or go back: ")
+            print("0) Back")
+            for index, key in enumerate(groupList, start = 1):
+                print(f"{index}) {groupTypes[key]["fname"]}")
+           
+            userGrp = INVALID
+            while not is_valid_range(userGrp, 0, len(groupList)):
+                userGrp = input("Select a category for the selected device, or go back: ")
                 
-            if int(catSel) > 0:
-                match int(catSel):
-                    case 1:
-                        curType = "processor"
-                    case 2:
-                        curType = "dsp"
-                    case 3:
-                        curType = "mics"
-                    case 4:
-                        curType = "cams"
-                    case 5:
-                        curType = "touchpanels"
-                    case 6:
-                        curType = "audioDev"
-                    case 7:
-                        curType = "netVidTx"
-                    case 8:
-                        curType = "netVidRx"
-                    case 9:
-                        curType = "network"
-                    case 10:
-                        curType = "pdus"
-                    case _:
-                        curType = "unknown"
-                        
-                if curType != "unknown":
-                    #find CSV line associated with deviceID
-                    line = unknownDevs[selectedDev]                    
-                    #devices[curType].append(selectedDev)
-                    devices[curType] = {"deviceID": selectedDev, "line": line}
-                    unknownList.remove(selectedDev)
+            selectedGrp = groupList[int(userGrp) - 1]
+
+            #CSV line associated with deviceID
+            line = unknownDevs[selectedDev]                    
+            devices[selectedGrp] = {"deviceID": selectedDev, "line": line}
+            unknownList.remove(selectedDev)
+                    
                 
                 
 def ip_devices():
@@ -309,11 +343,10 @@ def ip_devices():
 
     142-121 = 20, *excluding 141*
     
-    
     ipaddr = get_address(curType)
     currentRow[9] = ipaddr
     """
-
+    print("Not yet implemented!")
 
 
 def write_file():
@@ -334,7 +367,7 @@ def write_file():
 
 #--------------------------------------Helper Methods--------------------------------------#
 def is_valid(provided: int, accepted) -> bool:
-    """Determines if any one object in accepted matches provided"""
+    """Determines if any one number in accepted matches provided"""
     valid = False
     for num in accepted:
         if int(provided) == num:
@@ -344,7 +377,7 @@ def is_valid(provided: int, accepted) -> bool:
     return valid
 
 def is_valid_range(provided: str, minAccepted: int, maxAccepted: int) -> bool:
-    """Determines if provided value is between 1 and the maxAccepted value."""
+    """Determines if provided value is between minAccepted and maxAccepted value inclusively."""
     valid = False
     if str(provided).isdigit():
         valid = int(provided) >= int(minAccepted) and int(provided) <= maxAccepted
@@ -352,43 +385,11 @@ def is_valid_range(provided: str, minAccepted: int, maxAccepted: int) -> bool:
 
 def get_type(name: str) -> str:
     """Determines the device type given the device name, assuming standard format (e.g. DEC-101 -> DEC)"""
-    #filter out device number
-    hyphenInd = name.find("-")
-    filteredName = name[:hyphenInd]
-
-    match filteredName:
-        case "CPRO":
-            devType = "processor"
-        case "DSP":
-            devType = "dsp"
-        case "MIC":
-            devType = "mics"
-        case "CAM":
-            devType = "cams"
-        case "TPT":
-            devType = "touchpanels"
-        case "TP":
-            devType = "touchpanels"
-        case "AMP":
-            devType = "audioDev"
-        case "EXP":
-            devType = "netVidTx"
-        case "AVB":
-            devType = "netVidTx"
-        case "PDU":
-            devType = "pdus"
-        case "ENC":
-            devType = "netVidTx"
-        case "DEC":
-            devType = "netVidRx"
-        case "NSW":
-            devType = "network"
-        case "WAP":
-            devType = "network"
-        case _:
-            devType = "unknown"
-
-    return devType
+    for group, info in groupTypes.items():
+        for devName in info["dname"]:
+            if devName in name:
+                return group
+    return "unknown"
 
 def get_dl_path():
     """__Determine the path to the downloads folder based on OS"""
@@ -415,13 +416,12 @@ def main():
     #at this point we should have populated the fileLines from either paste or file parsing, now we group devices and assign IPs
     if len(fileLines) > 0:
         assign_devices()
-        assigned = True
     #if we find any devices we can't identify, fix them
     if len(unknownDevs) > 0:
-        fix_unknowns()
+        fix_unknowns()      
     
-    if assigned:
-        write_file()
+    ip_devices()
+    write_file()
 
 
 main()
