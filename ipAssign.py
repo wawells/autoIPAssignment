@@ -13,7 +13,6 @@ TODO:
 
 Secondary
 - when defining device types, group remaining selections of the same type automatically
-- allow skipping fixUnknowns
 - allow specified output path
 - allow specified ip scheme
 - allow specified ip blacklist
@@ -63,16 +62,16 @@ ips = {}
 devices = {}
 fileLines = []
 unknownDevs = {}
+usedIPs = set()
+blacklist = set()
 
 
 BLANK_FIELD = "---"
-NUM_FIELDS = 27
-
 INVALID = -1
+IPSTART = "132.1.0."
+NUM_FIELDS = 27
 PASTING_VALS = 1
 PROVIDING_PATH = 2
-IPSTART = "132.1.0."
-numDevices = 0
 
 testPath = '/Users/alex/Downloads/TED(Project- TED- Training - Colab ).csv'
 
@@ -176,7 +175,7 @@ def create_pools():
     ips["netVidRx"] = 121
     devices["netVidRx"] = []
 
-    ips["netVidTx"] = 141
+    ips["netVidTx"] = 142
     devices["netVidTx"] = []
 
     ips["speakers"] = 161
@@ -205,7 +204,7 @@ def get_address(typeName: str) -> int:
     #find next IP to assign based on device type
     num = ips.get(typeName)
     address = address + str(num)
-
+    usedIPs.add(num)
     #increment next available IP and update dict
     num += 1
     ips[typeName] = num
@@ -214,18 +213,17 @@ def get_address(typeName: str) -> int:
 
 
 def assign_devices():
-    """Iterates through populated list of lines provided by user and assigns IPs"""
+    """Iterates through csv lines in user file and assigns devices to groups"""
     for line, currentRow in enumerate(fileLines):
         if len(currentRow) >= NUM_FIELDS:
             #if we have -, we are likely looking at rows with devices
             if "-" in currentRow[3] and currentRow[3] != BLANK_FIELD:
-                #extract the device from the information
                 deviceID = str(currentRow[3].strip())
                 curType = get_type(deviceID)
                 if curType != "unknown":
-                    ipaddr = get_address(curType)
-                    devices[curType].append(deviceID)
-                    currentRow[9] = ipaddr
+                    #devices[curType].append(deviceID)
+                    devices[curType] = {"deviceID": deviceID, "line": line}
+
                 else:
                     hyphenInd = deviceID.find("-")
                     if hyphenInd > 0:
@@ -242,62 +240,81 @@ def assign_devices():
 def fix_unknowns():
     """Requests user assistance with assigning IPs to atypical devices"""
     unknownList = list(unknownDevs.keys())
-    
-    while len(unknownList) > 0:
+    userQuit = False
+    while len(unknownList) > 0 and not userQuit:
         print("The following devices were unable to be identified: ")
+        print("0) Quit")
         for dev in range(len(unknownList)):
             adjNum = dev + 1
             print(str(adjNum) + ") " + unknownList[dev])
 
         unknownSel = INVALID
-        while not is_valid_range(unknownSel, 1, len(unknownList)):
-            unknownSel = input("Select a device to assign to a category: ")
-        adjSel = int(unknownSel) - 1
+        while not is_valid_range(unknownSel, 0, len(unknownList)):
+            unknownSel = input("Select a device to assign to a category, or quit: ")
         
-        selectedDev = unknownList[adjSel]
-        print("Selected Device: " + selectedDev)
-        print("0) Back\n1) Processor\n2) DSP\n3) Microphone\n4) Camera\n5) Touchpanel\n6) Audio Device\n7) Transmitter\n8) Receiver\n9) Network\n10) Power")
-
-        catSel = INVALID
-        while not is_valid_range(catSel, 0, 10):
-            catSel = input("Select a category for the selected device, or go back: ")
+        if int(unknownSel) == 0:
+            userQuit = True
+        else:
+            adjSel = int(unknownSel) - 1
             
-        if int(catSel) > 0:
-            match int(catSel):
-                case 1:
-                    curType = "processor"
-                case 2:
-                    curType = "dsp"
-                case 3:
-                    curType = "mics"
-                case 4:
-                    curType = "cams"
-                case 5:
-                    curType = "touchpanels"
-                case 6:
-                    curType = "audioDev"
-                case 7:
-                    curType = "netVidTx"
-                case 8:
-                    curType = "netVidRx"
-                case 9:
-                    curType = "network"
-                case 10:
-                    curType = "pdus"
-                case _:
-                    curType = "unknown"
-                    
-            if curType != "unknown":
-                curIP = get_address(curType)
-                #find line referenced by unknownDev to update IP
-                line = unknownDevs[selectedDev]
-                csvLine = fileLines[line]
-                if len(csvLine) >= NUM_FIELDS:
-                    csvLine[9] = curIP
+            selectedDev = unknownList[adjSel]
+            print("Selected Device: " + selectedDev)
+            print("0) Back\n1) Processor\n2) DSP\n3) Microphone\n4) Camera\n5) Touchpanel\n6) Audio Device\n7) Transmitter\n8) Receiver\n9) Network\n10) Power")
+
+            catSel = INVALID
+            while not is_valid_range(catSel, 0, 10):
+                catSel = input("Select a category for the selected device, or go back: ")
                 
-                devices[curType].append(selectedDev)
-                unknownList.remove(selectedDev)
+            if int(catSel) > 0:
+                match int(catSel):
+                    case 1:
+                        curType = "processor"
+                    case 2:
+                        curType = "dsp"
+                    case 3:
+                        curType = "mics"
+                    case 4:
+                        curType = "cams"
+                    case 5:
+                        curType = "touchpanels"
+                    case 6:
+                        curType = "audioDev"
+                    case 7:
+                        curType = "netVidTx"
+                    case 8:
+                        curType = "netVidRx"
+                    case 9:
+                        curType = "network"
+                    case 10:
+                        curType = "pdus"
+                    case _:
+                        curType = "unknown"
+                        
+                if curType != "unknown":
+                    #find CSV line associated with deviceID
+                    line = unknownDevs[selectedDev]                    
+                    #devices[curType].append(selectedDev)
+                    devices[curType] = {"deviceID": selectedDev, "line": line}
+                    unknownList.remove(selectedDev)
                 
+                
+def ip_devices():
+    """Utilizes populated categories of devices and blacklist to assigns IPs, avoiding conflicts and resizing pools where necessary"""
+    """
+    if the # of devices for a particular category > the difference between the starting IPs of the adjacent categories, then we need to resize
+
+    e.g.
+    121-140: Network Video Rx  == 121
+    142-160: Network Video Tx  == 142
+
+    142-121 = 20, *excluding 141*
+    
+    
+    ipaddr = get_address(curType)
+    currentRow[9] = ipaddr
+    """
+
+
 
 def write_file():
     """Write the updated device list into a new file in the downloads folder"""
