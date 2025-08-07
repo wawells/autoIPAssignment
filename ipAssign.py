@@ -68,7 +68,7 @@ blacklist = set()
 
 BLANK_FIELD = "---"
 INVALID = -1
-IPSTART = "132.1.0."
+NETWORK_ID = "132.1.0."
 NUM_FIELDS = 27
 PASTING_VALS = 1
 PROVIDING_PATH = 2
@@ -251,20 +251,18 @@ def parse_data(data: str):
     print("parse_data Not yet implemented!")
 
 
-def get_address(typeName: str) -> int:
-    """Given the type of the device, determines the next IP in the range to assign to the device"""
-    #get leading values of IP
-    address = str(IPSTART)
-    
-    #find next IP to assign based on device type
-    num = ips.get(typeName)
-    address = address + str(num)
-    usedIPs.add(num)
-    #increment next available IP and update dict
-    num += 1 # type: ignore
-    ips[typeName] = num
+def get_address(devGroup: str) -> str:
+    """Given the group of the device, determines the next IP in the range to assign to the device"""
+    address = str(NETWORK_ID)
+    hostID = ips.get(devGroup)
+    while hostID in usedIPs:
+        hostID += 1 # type: ignore
+    usedIPs.add(hostID)
+    address = address + str(hostID)
+    hostID += 1 # type: ignore
+    ips[devGroup] = hostID
 
-    return address # type: ignore
+    return address 
 
 
 def assign_devices():
@@ -338,39 +336,20 @@ def ip_devices():
 
     142-121 = 20, *excluding 141*
     
-    ipaddr = get_address(curType)
-    currentRow[9] = ipaddr
+    for every device group, go through the devices and assign an IP. Write the IP to the device line
+    devices[devType] = {"deviceID": deviceID, "line": line}
     
-    1-19: Network Infrastructure 
-    20: Mic Master Control
-    21-25: MIC WAPS
-    26-30: Dante MIC WAPS 
-    31-49: Ceiling/Table Mics
-    50: OPEN
-    51-69: Dante Ceiling/Table Mics
-    70-79: Mic Network Charging Station
-    80: Camera Master Control
-    81-89: Cameras
-    90-94: VTC Devices (Codec/Bridges)
-    95-99: Crestron Control
-    100: Control Processor
-    101-103: DSP
-    104: DSP Dante Card
-    105-110: Audio Device
-    111-119: Touch Panels
-    120: OPEN ? 
-    121-140: Network Video Rx
-    141: Matrix
-    142-160: Network Video Tx
-    161-199: Ceiling Speakers
-    200: OPEN
-    201-220: Displays
-    221-224: Videowall Processors
-    225-250: DHCP
-    251-253: Service
-    254: DNS
-    255: Broadcast
+            9                    10               11        12      13   
+    Primary IP address | Secondary IP Address | Subnet | Gateway | VLAN |
     """
+    for devGroup, info in devices.items():
+        #info["deviceID"], info["line"]
+        curIP = get_address(devGroup)
+        curLine = fileLines[info["line"]]
+        curLine[9] = curIP
+        curLine[11] = "255.255.255.0"
+        curLine[12] = "132.1.0.1"
+        curLine[13] = "vid01" 
     
     
     print("ip_devices Not yet implemented!")
@@ -380,7 +359,7 @@ def write_file():
     """Write the updated device list into a new file in the downloads folder"""
     try:
         downloadFolder = get_dl_path()
-        path = downloadFolder / "UPDATED_CSV.csv"
+        path = downloadFolder / "updatedTED.csv"
         
         with open(path, 'w', newline = '') as file:
             writer = csv.writer(file)
@@ -419,7 +398,7 @@ def get_type(name: str) -> str:
     return "unknown"
 
 def get_dl_path():
-    """__Determine the path to the downloads folder based on OS"""
+    """Determine the path to the downloads folder based on OS"""
     system = platform.system()
     
     if system == 'Windows':
