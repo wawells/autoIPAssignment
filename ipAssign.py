@@ -198,13 +198,14 @@ testPath = '/Users/alex/Downloads/TED(Project- TED- Training - Colab ).csv'
 def get_input():
     """Prompts user for input format and data, then executes populates IPs for the provided data if possible"""
     importType = INVALID
-    while not is_valid(importType, [PASTING_VALS, PROVIDING_PATH]):
+    while not is_valid(importType, [PASTING_VALS, PROVIDING_PATH]): # type: ignore
         importType = input("Will you be (1)pasting values or (2)providing a CSV file path? ")
 
-    if int(importType) == PASTING_VALS:
+    importType = int(importType)
+    if importType == PASTING_VALS:
         data = input("Enter pasted values here: ")
-        parseData(data)
-    else:
+        parse_data(data)
+    elif importType == PROVIDING_PATH:
         #reading file from path
         validFile = False
         while not validFile:
@@ -226,7 +227,7 @@ def get_input():
                         else:
                             numBlanks = 0    
                         fileLines.append(row)
-                        #early exit condition for 3 or more blank rows
+                        
                         if numBlanks >= 3: 
                             break
                         
@@ -247,7 +248,7 @@ def create_pools():
         
 def parse_data(data: str):
     """Parses the pasted device table from user input"""
-    print("Not yet implemented!")
+    print("parse_data Not yet implemented!")
 
 
 def get_address(typeName: str) -> int:
@@ -260,39 +261,35 @@ def get_address(typeName: str) -> int:
     address = address + str(num)
     usedIPs.add(num)
     #increment next available IP and update dict
-    num += 1
+    num += 1 # type: ignore
     ips[typeName] = num
 
-    return address
+    return address # type: ignore
 
 
 def assign_devices():
     """Iterates through csv lines in user file and assigns devices to groups"""
     for line, currentRow in enumerate(fileLines):
         if len(currentRow) >= NUM_FIELDS:
-            #if we have -, we are likely looking at rows with devices
             if "-" in currentRow[3] and currentRow[3] != BLANK_FIELD:
                 deviceID = str(currentRow[3].strip())
-                curType = get_type(deviceID)
-                if curType != "unknown":
-                    #devices[curType].append(deviceID)
-                    devices[curType] = {"deviceID": deviceID, "line": line}
-
+                devType = get_type(deviceID)
+                if devType != "unknown":
+                    devices[devType] = {"deviceID": deviceID, "line": line}
                 else:
                     hyphenInd = deviceID.find("-")
                     if hyphenInd > 0:
                         devNum = deviceID[hyphenInd+1:]
                         if devNum.isdigit():
-                            #we have determined the device has some sort of number associated, indicating it is likely valid
                             unknownDevs[deviceID] = line
                         else:
-                            print("Unknown Device Skipped; Non-numeric: " + deviceID)
+                            print(f"Unknown Device Skipped; Non-numeric: {deviceID}")
                     else:
-                        print("Unknown Device Skipped; Missing '-': " + deviceID)     
+                        print(f"Unknown Device Skipped; Missing '-': {deviceID}")     
 
 
 def fix_unknowns():
-    """Requests user assistance with assigning IPs to atypical devices"""
+    """Requests user assistance with assigning groups to atypical devices"""
     unknownList = list(unknownDevs.keys())
     userQuit = False
     while len(unknownList) > 0 and not userQuit:
@@ -300,14 +297,12 @@ def fix_unknowns():
         print("0) Quit")
         for index, device in enumerate(unknownList, start = 1):
             print(f"{index}) {device}")
-            #print(str(index) + ") " + device)
 
         selection = INVALID
-        while not is_valid_range(selection, 0, len(unknownList)):
+        while not is_valid_range(selection, 0, len(unknownList)): # type: ignore
             selection = input("Select a device to assign to a category, or quit: ")
         
         selection = int(selection)
-    
         if selection == 0:
             userQuit = True
         else:
@@ -320,7 +315,7 @@ def fix_unknowns():
                 print(f"{index}) {groupTypes[key]["fname"]}")
            
             userGrp = INVALID
-            while not is_valid_range(userGrp, 0, len(groupList)):
+            while not is_valid_range(userGrp, 0, len(groupList)): # type: ignore
                 userGrp = input("Select a category for the selected device, or go back: ")
                 
             selectedGrp = groupList[int(userGrp) - 1]
@@ -345,8 +340,40 @@ def ip_devices():
     
     ipaddr = get_address(curType)
     currentRow[9] = ipaddr
+    
+    1-19: Network Infrastructure 
+    20: Mic Master Control
+    21-25: MIC WAPS
+    26-30: Dante MIC WAPS 
+    31-49: Ceiling/Table Mics
+    50: OPEN
+    51-69: Dante Ceiling/Table Mics
+    70-79: Mic Network Charging Station
+    80: Camera Master Control
+    81-89: Cameras
+    90-94: VTC Devices (Codec/Bridges)
+    95-99: Crestron Control
+    100: Control Processor
+    101-103: DSP
+    104: DSP Dante Card
+    105-110: Audio Device
+    111-119: Touch Panels
+    120: OPEN ? 
+    121-140: Network Video Rx
+    141: Matrix
+    142-160: Network Video Tx
+    161-199: Ceiling Speakers
+    200: OPEN
+    201-220: Displays
+    221-224: Videowall Processors
+    225-250: DHCP
+    251-253: Service
+    254: DNS
+    255: Broadcast
     """
-    print("Not yet implemented!")
+    
+    
+    print("ip_devices Not yet implemented!")
 
 
 def write_file():
@@ -366,7 +393,7 @@ def write_file():
 
 
 #--------------------------------------Helper Methods--------------------------------------#
-def is_valid(provided: int, accepted) -> bool:
+def is_valid(provided: str, accepted) -> bool:
     """Determines if any one number in accepted matches provided"""
     valid = False
     for num in accepted:
@@ -401,8 +428,6 @@ def get_dl_path():
         dlPath = Path.home() / 'Downloads'
     else:
         raise OSError(f"Unsupported Operating System: {system}")
-    #TODO add ability for user to specify output path
-    
     
     if not dlPath.exists():
         raise FileNotFoundError(f"Downloads folder could not be located")
@@ -420,7 +445,7 @@ def main():
     if len(unknownDevs) > 0:
         fix_unknowns()      
     
-    ip_devices()
+    #ip_devices()
     write_file()
 
 
