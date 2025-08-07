@@ -350,9 +350,6 @@ def ip_devices():
         curLine[11] = "255.255.255.0"
         curLine[12] = "132.1.0.1"
         curLine[13] = "vid01" 
-    
-    
-    print("ip_devices Not yet implemented!")
 
 
 def write_file():
