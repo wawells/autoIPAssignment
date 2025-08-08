@@ -197,8 +197,8 @@ testPath = '/Users/alex/Downloads/TED(Project- TED- Training - Colab ).csv'
 
 def get_input():
     """Prompts user for input format and data, then executes populates IPs for the provided data if possible"""
-    importType = INVALID
-    while not is_valid(importType, [PASTING_VALS, PROVIDING_PATH]): # type: ignore
+    importType = str(INVALID)
+    while not is_valid(importType, [PASTING_VALS, PROVIDING_PATH]):
         importType = input("Will you be (1)pasting values or (2)providing a CSV file path? ")
 
     importType = int(importType)
@@ -254,13 +254,17 @@ def parse_data(data: str):
 def get_address(devGroup: str) -> str:
     """Given the group of the device, determines the next IP in the range to assign to the device"""
     address = str(NETWORK_ID)
-    hostID = ips.get(devGroup)
-    while hostID in usedIPs:
-        hostID += 1 # type: ignore
-    usedIPs.add(hostID)
-    address = address + str(hostID)
-    hostID += 1 # type: ignore
-    ips[devGroup] = hostID
+    hostID = int(ips.get(devGroup) or 0)
+    while hostID in usedIPs or hostID in blacklist:
+        hostID += 1
+        
+    if is_valid_range(str(hostID or 0), 1, 254):
+        usedIPs.add(hostID)
+        address = address + str(hostID)
+        hostID += 1
+        ips[devGroup] = hostID
+    else:
+        address = "ADDRESS_OVERFLOW"
 
     return address 
 
@@ -296,8 +300,8 @@ def fix_unknowns():
         for index, device in enumerate(unknownList, start = 1):
             print(f"{index}) {device}")
 
-        selection = INVALID
-        while not is_valid_range(selection, 0, len(unknownList)): # type: ignore
+        selection = str(INVALID)
+        while not is_valid_range(selection, 0, len(unknownList)):
             selection = input("Select a device to assign to a category, or quit: ")
         
         selection = int(selection)
@@ -312,8 +316,8 @@ def fix_unknowns():
             for index, key in enumerate(groupList, start = 1):
                 print(f"{index}) {groupTypes[key]["fname"]}")
            
-            userGrp = INVALID
-            while not is_valid_range(userGrp, 0, len(groupList)): # type: ignore
+            userGrp = str(INVALID)
+            while not is_valid_range(userGrp, 0, len(groupList)):
                 userGrp = input("Select a category for the selected device, or go back: ")
                 
             selectedGrp = groupList[int(userGrp) - 1]
@@ -326,30 +330,23 @@ def fix_unknowns():
                 
                 
 def ip_devices():
-    """Utilizes populated categories of devices and blacklist to assigns IPs, avoiding conflicts and resizing pools where necessary"""
+    """Assigns IPs to every device and writes it to the file"""
     """
-    if the # of devices for a particular category > the difference between the starting IPs of the adjacent categories, then we need to resize
-
-    e.g.
-    121-140: Network Video Rx  == 121
-    142-160: Network Video Tx  == 142
-
-    142-121 = 20, *excluding 141*
-    
-    for every device group, go through the devices and assign an IP. Write the IP to the device line
     devices[devType] = {"deviceID": deviceID, "line": line}
-    
             9                    10               11        12      13   
     Primary IP address | Secondary IP Address | Subnet | Gateway | VLAN |
     """
     for devGroup, info in devices.items():
         #info["deviceID"], info["line"]
         curIP = get_address(devGroup)
-        curLine = fileLines[info["line"]]
-        curLine[9] = curIP
-        curLine[11] = "255.255.255.0"
-        curLine[12] = "132.1.0.1"
-        curLine[13] = "vid01" 
+        if curIP != "ADDRESS_OVERFLOW":
+            curLine = fileLines[info["line"]]
+            curLine[9] = curIP
+            curLine[11] = "255.255.255.0"
+            curLine[12] = "132.1.0.1"
+            curLine[13] = "vid01"
+        else:
+            break
 
 
 def write_file():
